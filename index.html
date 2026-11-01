@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ふたりの五十音デート帖</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#f8f3ec;color:#352a26;font-family:-apple-system,BlinkMacSystemFont,"Yu Gothic",sans-serif}
+button,input,textarea{font:inherit}
+#login{max-width:420px;margin:12vh auto;padding:25px}
+#login h1{text-align:center;font-family:serif}
+#login input{width:100%;padding:13px;margin:8px 0;border:1px solid #d8c8ba;border-radius:10px}
+#app{display:none;max-width:960px;margin:auto;padding:24px 16px}
+header{text-align:center;padding:20px 0}
+.eyebrow{letter-spacing:.2em;color:#a94f45;font-size:11px}
+h1{font-family:serif;font-size:32px;margin:10px}
+.subtitle{color:#806e64;font-size:13px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin:15px 0}
+.stat{background:#e8c9a8;border-radius:14px;padding:13px 5px;text-align:center}
+.stat strong{display:block;font:25px Georgia}
+.stat span{font-size:11px}
+.progress-wrap{height:8px;background:#e9ded3;border-radius:20px;overflow:hidden}
+.progress{height:100%;width:0;background:#a94f45}
+.progress-label{display:flex;justify-content:space-between;font-size:11px;color:#806e64;margin:7px 0 22px}
+.toolbar{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.toolbar h2{font:18px serif}
+.actions{display:flex;gap:7px;flex-wrap:wrap}
+.action{border:1px solid #d8c8ba;background:transparent;color:inherit;border-radius:999px;padding:9px 13px;font-size:12px}
+.primary{background:#a94f45;color:white;border-color:#a94f45}
+.grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+.kana{min-height:100px;border:1px solid #e5d9cf;background:#fffcf8;color:inherit;border-radius:13px;padding:9px 6px;text-align:left;position:relative}
+.kana.done{background:#f2e2d6;border-color:#a94f45}
+.char{display:block;font:26px Georgia;margin-bottom:5px}
+.detail{display:block;color:#806e64;font-size:10px;line-height:1.4;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;min-height:28px}
+.date{display:block;color:#a94f45;font-size:10px;margin-top:5px}
+.check{position:absolute;right:7px;top:6px;color:#a94f45}
+.blank{visibility:hidden}
+.legend{font-size:11px;color:#806e64;margin:15px 0 22px}
+footer{border-top:1px solid #e5d9cf;padding-top:15px;font-size:11px;color:#806e64;display:flex;justify-content:space-between;gap:10px}
+#syncStatus{color:#a94f45}
+.backdrop{display:none;position:fixed;inset:0;background:#17110fcc;z-index:5;align-items:center;justify-content:center;padding:16px}
+.backdrop.open{display:flex}
+.modal{width:min(100%,430px);background:#fffcf8;color:#352a26;border-radius:20px;padding:22px}
+.modalTop{display:flex;justify-content:space-between;align-items:center}
+.modal h3{font:23px serif}
+.close{border:0;background:none;font-size:24px}
+label{display:block;font-size:12px;margin:13px 0 6px;color:#806e64}
+.modal input,.modal textarea{width:100%;padding:11px;border:1px solid #d8c8ba;border-radius:10px;background:white;color:#352a26}
+textarea{min-height:90px}
+.modalButtons{display:flex;gap:8px;margin-top:16px}
+.modalButtons button{flex:1}
+.delete{color:#b34b42;border-color:#b34b42}
+.notice{font-size:11px;color:#806e64;line-height:1.6}
+@media(max-width:560px){#app{padding:15px 12px}h1{font-size:28px}.grid{gap:6px}.kana{min-height:92px;padding:7px 5px}.char{font-size:23px}.detail{font-size:9px}.stats{gap:6px}.stat{padding:11px 3px}}
+</style>
+</head>
+<body>
+
+<section id="login">
+<h1>五十音デート帖</h1>
+<p style="text-align:center;color:#806e64">ふたりの思い出を一緒に記録しよう。</p>
+<label>メールアドレス</label>
+<input id="email" type="email" placeholder="共有アカウントのメールアドレス">
+<label>パスワード</label>
+<input id="password" type="password" placeholder="パスワード">
+<button class="action primary" id="loginBtn" style="width:100%;padding:13px">ログイン</button>
+<p id="loginError" style="color:#b34b42;font-size:12px"></p>
+</section>
+
+<main id="app">
+<header>
+<div class="eyebrow">OUR LITTLE ADVENTURE</div>
+<h1>五十音デート帖</h1>
+<div class="subtitle">あ から ん まで、ふたりでひとつずつ。</div>
+</header>
+
+<section class="stats">
+<div class="stat"><strong id="count">0 / 46</strong><span>コンプリート</span></div>
+<div class="stat"><strong id="percent">0%</strong><span>達成率</span></div>
+<div class="stat"><strong id="remaining">46</strong><span>これからの楽しみ</span></div>
+</section>
+<div class="progress-wrap"><div class="progress" id="bar"></div></div>
+<div class="progress-label"><span>ふたりの思い出メーター</span><span id="progressText">0文字達成</span></div>
+
+<div class="toolbar">
+<h2>五十音コンプリート表</h2>
+<div class="actions">
+<button class="action" id="exportBtn">書き出す</button>
+<button class="action" id="importBtn">読み込む</button>
+<button class="action" id="logoutBtn">ログアウト</button>
+</div>
+</div>
+<div class="grid" id="grid"></div>
+<div class="legend">文字をタップして、デートした日と思い出を記録できます。</div>
+<footer><span>ふたりのペースで、のんびりコンプリート。</span><span id="syncStatus">接続中...</span></footer>
+</main>
+
+<div class="backdrop" id="backdrop">
+<div class="modal">
+<div class="modalTop"><h3 id="modalTitle">デート記録</h3><button class="close" id="closeBtn">×</button></div>
+<label for="dateInput">デートした日</label>
+<input id="dateInput" type="date">
+<label for="detailInput">デートの内容・思い出</label>
+<textarea id="detailInput" placeholder="どんなデートだった？"></textarea>
+<div class="modalButtons">
+<button class="action delete" id="clearBtn">記録を消す</button>
+<button class="action primary" id="saveBtn">保存する</button>
+</div>
+<p class="notice">保存すると、もう一方のスマホにも記録が同期されます。</p>
+</div>
+</div>
+
+<input type="file" id="fileInput" accept=".json,application/json" hidden>
+
+<script>
+const SUPABASE_URL = "https://euwimpsebqtebgigdfza.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_ed9j9ndAnZEfsuzUuDXCcw_Rl4vUHqI";
+
+const db = window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY);
+
+const rows = [
+["あ","い","う","え","お"],["か","き","く","け","こ"],
+["さ","し","す","せ","そ"],["た","ち","つ","て","と"],
+["な","に","ぬ","ね","の"],["は","ひ","ふ","へ","ほ"],
+["ま","み","む","め","も"],["や",null,"ゆ",null,"よ"],
+["ら","り","る","れ","ろ"],["わ",null,null,null,"を"],
+["ん",null,null,null,null]
+];
+const all=rows.flat().filter(Boolean);
+let records={};
+let active=null;
+let channel=null;
+
+const $=id=>document.getElementById(id);
+
+function today(){
+ const d=new Date();
+ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+}
+
+function escapeHtml(s){
+ return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+
+function render(){
+ const completed=all.filter(k=>records[k]&&(records[k].date||records[k].detail));
+ const n=completed.length,pct=Math.round(n/all.length*100);
+ $("count").textContent=`${n} / ${all.length}`;
+ $("percent").textContent=`${pct}%`;
+ $("remaining").textContent=all.length-n;
+ $("bar").style.width=`${pct}%`;
+ $("progressText").textContent=`${n}文字達成`;
+
+ $("grid").innerHTML=rows.map(row=>row.map(k=>{
+  if(!k)return '<div class="blank"></div>';
+  const r=records[k]||{};
+  const done=!!(r.date||r.detail);
+  const date=r.date?new Date(r.date+"T00:00:00").toLocaleDateString("ja-JP"):"";
+  return `<button class="kana ${done?"done":""}" data-kana="${k}">
+   <span class="check">${done?"✓":""}</span>
+   <span class="char">${k}</span>
+   <span class="detail">${escapeHtml(r.detail||"タップして記録")}</span>
+   <span class="date">${date||"　"}</span>
+  </button>`;
+ }).join("")).join("");
+
+ document.querySelectorAll(".kana").forEach(b=>b.addEventListener("click",()=>openModal(b.dataset.kana)));
+}
+
+function openModal(k){
+ active=k;
+ const r=records[k]||{};
+ $("modalTitle").textContent=`「${k}」のデート記録`;
+ $("dateInput").value=r.date||today();
+ $("detailInput").value=r.detail||"";
+ $("backdrop").classList.add("open");
+}
+
+function closeModal(){
+ $("backdrop").classList.remove("open");
+ active=null;
+}
+
+async function loadRecords(){
+ $("syncStatus").textContent="記録を読み込み中...";
+ const {data,error}=await db.from("date_records").select("*");
+ if(error)throw error;
+ records={};
+ (data||[]).forEach(r=>{records[r.kana]={date:r.date||"",detail:r.detail||""};});
+ render();
+ $("syncStatus").textContent="☁ ふたりで共有中";
+}
+
+async function saveRecord(){
+ if(!active)return;
+ const kana=active;
+ const date=$("dateInput").value;
+ const detail=$("detailInput").value.trim();
+
+ $("saveBtn").disabled=true;
+ try{
+  if(!date&&!detail){
+   const {error}=await db.from("date_records").delete().eq("kana",kana);
+   if(error)throw error;
+   delete records[kana];
+  }else{
+   const {error}=await db.from("date_records").upsert({
+    kana,date:date||null,detail,updated_at:new Date().toISOString()
+   });
+   if(error)throw error;
+   records[kana]={date,detail};
+  }
+  render();
+  closeModal();
+  $("syncStatus").textContent="☁ 同期済み";
+ }catch(e){
+  alert("保存できませんでした。\n"+e.message);
+ }finally{
+  $("saveBtn").disabled=false;
+ }
+}
+
+function subscribeRealtime(){
+ if(channel)db.removeChannel(channel);
+ channel=db.channel("date-records-sync")
+ .on("postgres_changes",{event:"*",schema:"public",table:"date_records"},payload=>{
+  const row=payload.new||payload.old;
+  if(!row||!all.includes(row.kana))return;
+  if(payload.eventType==="DELETE")delete records[row.kana];
+  else records[row.kana]={date:row.date||"",detail:row.detail||""};
+  render();
+  $("syncStatus").textContent="☁ 最新の記録に同期済み";
+ })
+ .subscribe();
+}
+
+async function showApp(){
+ $("login").style.display="none";
+ $("app").style.display="block";
+ try{
+  await loadRecords();
+  subscribeRealtime();
+ }catch(e){
+  $("syncStatus").textContent="接続エラー";
+  alert("記録を読み込めませんでした。\n"+e.message);
+ }
+}
+
+async function login(){
+ $("loginError").textContent="";
+ $("loginBtn").disabled=true;
+ const email=$("email").value.trim();
+ const password=$("password").value;
+ try{
+  const {error}=await db.auth.signInWithPassword({email,password});
+  if(error)throw error;
+  await showApp();
+ }catch(e){
+  $("loginError").textContent="ログインできませんでした。メールアドレスとパスワードを確認してください。";
+ }finally{
+  $("loginBtn").disabled=false;
+ }
+}
+
+$("loginBtn").onclick=login;
+$("password").addEventListener("keydown",e=>{if(e.key==="Enter")login();});
+$("saveBtn").onclick=saveRecord;
+$("closeBtn").onclick=closeModal;
+$("backdrop").addEventListener("click",e=>{if(e.target===$("backdrop"))closeModal();});
+
+$("clearBtn").onclick=async()=>{
+ if(!active)return;
+ const kana=active;
+ $("clearBtn").disabled=true;
+ try{
+  const {error}=await db.from("date_records").delete().eq("kana",kana);
+  if(error)throw error;
+  delete records[kana];
+  render();
+  closeModal();
+ }catch(e){alert("削除できませんでした。\n"+e.message);}
+ finally{$("clearBtn").disabled=false;}
+};
+
+$("logoutBtn").onclick=async()=>{
+ if(channel){await db.removeChannel(channel);channel=null;}
+ await db.auth.signOut();
+ records={};
+ $("app").style.display="none";
+ $("login").style.display="block";
+};
+
+$("exportBtn").onclick=()=>{
+ const blob=new Blob([JSON.stringify({app:"gojuon-date",version:1,records},null,2)],{type:"application/json"});
+ const url=URL.createObjectURL(blob);
+ const a=document.createElement("a");
+ a.href=url;a.download="futari-gojuon-date.json";a.click();
+ URL.revokeObjectURL(url);
+};
+
+$("importBtn").onclick=()=>$("fileInput").click();
+$("fileInput").onchange=async e=>{
+ const file=e.target.files[0];if(!file)return;
+ try{
+  const data=JSON.parse(await file.text());
+  const incoming=data.records||data;
+  if(!incoming||typeof incoming!=="object"||Array.isArray(incoming))throw Error("invalid");
+  for(const k of all){
+   if(incoming[k]&&typeof incoming[k]==="object"){
+    const {error}=await db.from("date_records").upsert({
+     kana:k,date:incoming[k].date||null,
+     detail:incoming[k].detail||"",
+     updated_at:new Date().toISOString()
+    });
+    if(error)throw error;
+   }
+  }
+  await loadRecords();
+  alert("データを読み込みました。");
+ }catch(err){alert("読み込みに失敗しました。\n"+err.message);}
+ e.target.value="";
+};
+
+(async()=>{
+ const {data:{session}}=await db.auth.getSession();
+ if(session)await showApp();
+})();
+</script>
+</body>
+</html>
