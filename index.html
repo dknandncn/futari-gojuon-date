@@ -258,7 +258,7 @@ async function login(){
   if(error)throw error;
   await showApp();
  }catch(e){
-  $("loginError").textContent="ログインできませんでした。メールアドレスとパスワードを確認してください。";
+  $("loginError").textContent="ログインエラー："+e.message;
  }finally{
   $("loginBtn").disabled=false;
  }
